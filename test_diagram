@@ -1,0 +1,5 @@
+digraph {
+	A [label="Table A"]
+	B [label="Table B"]
+	A -> B [label=FK]
+}

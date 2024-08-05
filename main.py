@@ -9,9 +9,6 @@ def initialize_bot(prompt_usuario):
     messages=QueryMaker(prompt_usuario, client, dbschema)
     print(messages)
 
-
-# # initialize_bot("Cuales es el Top 5 de las categorias de productos con mejor ganancia?")
-# initialize_bot("Cuales son las ciudades con menos ventas?")
 ###########################################################################################
 
 def main():

@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import json
+import pandas as pd
 
 # Streamlit app title
 st.title('Test Flask API with Streamlit')
@@ -21,12 +22,28 @@ if st.button('Send'):
             
             # Check if the request was successful
             if response.status_code == 200:
-                response_data = response.json()
-                st.success(f"Response: {response_data.get('response', 'No response key found')}")
-            else:
-                st.error(f"Error: {response.status_code} - {response.text}")
+
+                # Parse the JSON response
+                response_json = response.json()
+                
+                # Extract the final_query and data
+                response_query = response_json.get('final_query')
+                response_data = response_json.get('data')
+
+                # Display the SQL statement
+                st.header("Sentencia SQL:")
+                st.success(response_query)
+
+                ## Display the dataset as a dataframe if available
+                if response_data:
+                    # Assuming response_data is in a format convertible to a dataframe
+                    df = pd.DataFrame(response_data)
+                    st.header("Dataset:")
+                    st.dataframe(df)
+                else:
+                    st.warning("No data returned.")
         except Exception as e:
             st.error(f"Exception: {e}")
-    else:
-        st.warning('Please enter a query.')
+else:
+    st.warning('Please enter a query.')
 

@@ -8,9 +8,8 @@ def QueryMaker(prompt_usuario, client, dbschema):
     system_template = """
         # Rol:
             Eres un asistente de inteligencia artificial diseñado para ayudar al equipo de ingeniería de datos a realizar consultas en diversas fuentes de datos. 
-            Tu tarea principal es responder a las preguntas de los usuarios proporcionando un scripts SQL. 
+            Tu tarea principal es responder a las preguntas de los usuarios proporcionando un scripts SQL a partir del esquema de base de datos entregado a continuacion: 
             
-        
         #Este es el esquema de base de datos: 
             {dbschema}
 
@@ -46,35 +45,21 @@ def QueryMaker(prompt_usuario, client, dbschema):
         #Ejemplos:
             - Ejemplo 1: 
                 Pregunta: 
-                    ¿Ya sabiendo la data, cuál sería la query pertinente para saber cuál es la etnia con mejores beneficios totales?
+                    Top 3 Quaters con mayor ventas en los ultimos 10 años.
                 Consulta:
-                    SELECT 
-                        [Ethnicity],
-                        SUM([Annual Salary] + ([Annual Salary] * [Bonus %] / 100)) AS TotalBenefits
+                    SELECT TOP 3
+                        DATEPART(YEAR, soh.OrderDate) AS Year, 
+                        DATEPART(QUARTER, soh.OrderDate) AS Quarter, 
+                        SUM(soh.TotalDue) AS TotalSales 
                     FROM 
-                        [POC].[Employees]
+                        SalesLT.SalesOrderHeader AS soh 
                     GROUP BY 
-                        [Ethnicity]
+                        DATEPART(YEAR, soh.OrderDate), 
+                        DATEPART(QUARTER, soh.OrderDate) 
                     ORDER BY 
-                        TotalBenefits DESC;
-                        
-            - Ejemplo 2: 
-                Pregunta: 
-                    ¿Cuáles son los tres departamentos con el promedio de edad más bajo entre los empleados?
-                Consulta:
-                    SELECT 
-                        [Department],
-                        AVG([Age]) AS AverageAge
-                    FROM 
-                        [POC].[Employees]
-                    GROUP BY 
-                        [Department]
-                    ORDER BY 
-                        AverageAge ASC
-                    LIMIT 3;
-
-        #Resultado final:
-            El resultado final debe ser solo el script SQL. No dar como respuesta palabras o caracteres que no sean admitidos en un motor SQL.
+                        TotalSales DESC;
+        #Respuesta final:
+            Tu respuesta final debe ser un un script SQL limpio y sin caracteres no permitidos por SQL Server.                
     """
     system_prompt = PromptTemplate(template=system_template,input_variables=["dbschema"])
     system_prompt = SystemMessagePromptTemplate(prompt=system_prompt)

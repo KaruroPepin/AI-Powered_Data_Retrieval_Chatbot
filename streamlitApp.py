@@ -3,6 +3,7 @@ import requests
 import json
 import pandas as pd
 
+
 # Streamlit app title
 st.title('Test Flask API with Streamlit')
 
@@ -26,22 +27,31 @@ if st.button('Send'):
                 # Parse the JSON response
                 response_json = response.json()
                 
-                # Extract the final_query and data
-                response_query = response_json.get('final_query')
-                response_data = response_json.get('data')
+                if response_json['classification'] == 'Base de Datos':
+                    # Extract the final_query and data
+                    response_query = response_json.get('final_query')
+                    response_data = response_json.get('data')
 
-                # Display the SQL statement
-                st.header("Sentencia SQL:")
-                st.success(response_query)
+                    # Display the SQL statement
+                    st.header("Sentencia SQL:")
+                    st.success(response_query)
 
-                ## Display the dataset as a dataframe if available
-                if response_data:
-                    # Assuming response_data is in a format convertible to a dataframe
-                    df = pd.DataFrame(response_data)
-                    st.header("Dataset:")
-                    st.dataframe(df)
-                else:
-                    st.warning("No data returned.")
+                    ## Display the dataset as a dataframe if available
+                    if response_data:
+                        # Assuming response_data is in a format convertible to a dataframe
+                        df = pd.DataFrame(response_data)
+                        st.header("Dataset:")
+                        st.dataframe(df)
+                    else:
+                        st.warning("No data returned.")
+                
+                elif response_json['classification'] == 'Documento':
+                    response_doc_response = response_json.get('respuesta')
+
+                    # Display the SQL statement
+                    st.header("Respuesta:")
+                    st.success(response_doc_response) 
+
         except Exception as e:
             st.error(f"Exception: {e}")
 else:

@@ -1,1 +1,0 @@
-SELECT s.SalesPersonID, s.FirstName, s.LastName, SUM(soh.TotalDue) AS TotalSales FROM SalesLT.SalesPerson AS s JOIN SalesLT.SalesOrderHeader AS soh ON s.SalesPersonID = soh.SalesPersonID WHERE YEAR(soh.OrderDate) = (SELECT MAX(YEAR(OrderDate)) FROM SalesLT.SalesOrderHeader) GROUP BY s.SalesPersonID, s.FirstName, s.LastName ORDER BY TotalSales DESC;

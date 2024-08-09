@@ -2,7 +2,97 @@ from langchain.prompts.prompt import PromptTemplate
 from langchain.prompts import HumanMessagePromptTemplate,SystemMessagePromptTemplate,ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-from data import data
+
+# Clasificador
+def ContextClassifier(prompt_usuario, client):
+
+    system_template = """
+    #Rol: 
+        Clasifica el prompt "{prompt_usuario}" basado en su contexto. 
+        Genera una etiqueta descriptiva que catalogue el tipo de fuente de datos y el contexto general del prompt. 
+        Asegúrate de que la etiqueta sea precisa, representativa del contenido y sobretodo no variable.
+        Entre las etiquetas a siempre utilizaras se encuentran: 'Base de Datos' y 'Documento'.
+        A continuación, te proporciono el prompt para clasificar:
+
+        -Ejemplo 1: 
+        Enunciado: Cuales tipo de propiedades se encuentran disponibles?.
+	    Etiqueta: Base de Datos
+
+        -Ejemplo 2: 
+        Enunciado: Cual es la definicion de corporate information?.
+	    Etiqueta: Documento      
+
+        -Ejemplo 3: 
+        Enunciado: Cual es el top 5 estados en los que se encuentran las propiedades?.
+	    Etiqueta: Base de Datos
+
+        -Ejemplo 4: 
+        Enunciado: Dame un resumen de la seccion 3 del documento de modelos de datos.
+	    Etiqueta: Documento
+
+        -Ejemplo 5:
+        Enunciado: Proporciona una lista de clientes que han realizado compras en el último mes.
+        Etiqueta: Base de Datos 
+
+        -Ejemplo 6:
+        Enunciado: Cual es el propósito principal del documento de estrategia de ventas?
+        Etiqueta: Documento
+
+        -Ejemplo 7:
+        Enunciado: Que define el término 'transformación digital' en el informe?
+        Etiqueta: Documento
+
+
+        -Ejemplo 8:
+        Enunciado: Que registros de ventas están disponibles para el mes de julio?
+        Etiqueta: Base de Datos
+
+        -Ejemplo 9:
+        Enunciado: Resume los puntos clave del informe de rendimiento anual.
+        Etiqueta: Documento
+
+        -Ejemplo 10:
+        Enunciado: ¿Cuáles son los productos más vendidos en el último trimestre?
+        Etiqueta: Base de Datos
+
+        -Ejemplo 11:
+        Enunciado: Dame una lista de clientes con facturas pendientes.
+        Etiqueta: Base de Datos
+
+        -Ejemplo 12:
+        Enunciado: Que politicas se mencionan en el manual del empleado?
+        Etiqueta: Documento
+
+        -Ejemplo 13:
+        Enunciado: Proporciona la definicion de los terminos en el glosario del informe técnico.
+        Etiqueta: Documento
+
+        -Ejemplo 14:
+        Enunciado: Cual es la conclusion del analisis de mercado del informe financiero?
+        Etiqueta: Documento
+    
+    #Resultado final: Como resultado final a tu respuesta esta siempre sera la Etiqueta. No debes responder con algo distinto a las etiquetas indicadas.
+
+    """
+    system_prompt = PromptTemplate(template=system_template,input_variables=["dbschema"])
+    system_prompt = SystemMessagePromptTemplate(prompt=system_prompt)
+
+	#2. Humano
+    human_template = """
+	Pregunta:{prompt_usuario}\n
+	Etiqueta:
+	"""
+    human_prompt = PromptTemplate(template=human_template,input_variables=["prompt_usuario"])
+    human_prompt = HumanMessagePromptTemplate(prompt=human_prompt)
+
+	#3. Chat
+    chat_prompt = ChatPromptTemplate.from_messages([system_prompt, human_prompt])
+
+    label = chat_prompt | client | StrOutputParser()
+    label = label.invoke({"prompt_usuario":prompt_usuario})
+    return label   
+
+# Query Maker
 def QueryMaker(prompt_usuario, client, dbschema):
 
     system_template = """
@@ -78,6 +168,3 @@ def QueryMaker(prompt_usuario, client, dbschema):
     llm_chain = chat_prompt | client | StrOutputParser()
     llm_chain = llm_chain.invoke({"prompt_usuario":prompt_usuario, "dbschema":dbschema})
     return llm_chain
-
-    
-    

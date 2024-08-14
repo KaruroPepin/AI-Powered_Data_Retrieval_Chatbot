@@ -2,6 +2,8 @@ import streamlit as st
 import requests
 import json
 import pandas as pd
+import matplotlib.pyplot as plt
+
 
 
 # Streamlit app title
@@ -50,7 +52,43 @@ if st.button('Send'):
 
                     # Display the SQL statement
                     st.header("Respuesta:")
-                    st.success(response_doc_response) 
+                    st.success(response_doc_response)
+
+                elif response_json['classification'] == 'Grafico':
+                    response_chart = response_json.get('chart_type')
+                    response_data = response_json.get('chart_data')
+                    response_title = response_json.get('chart_title')
+
+                    # Assuming response_data is in a format convertible to a dataframe
+                    df = pd.DataFrame(response_data)
+
+                    funciones_graficos = {
+                        "barras": lambda df, ax: df.plot(kind='bar', ax=ax),
+                        "lineas": lambda df, ax: df.plot(kind='line', ax=ax),
+                        "circular": lambda df, ax: df.set_index(df.columns[0]).plot(kind='pie', y=df.columns[1], ax=ax),
+                        "dispersion": lambda df, ax: df.plot(kind='scatter', x=df.columns[0], y=df.columns[1], ax=ax),
+                        "histograma": lambda df, ax: df.plot(kind='hist', y=df.columns[1], ax=ax),
+                        "area": lambda df, ax: df.plot(kind='area', ax=ax),
+                        "radar": None  # Gráficos personalizados como radar podrían necesitar funciones adicionales
+                    }
+                    
+                    funcion_grafico = funciones_graficos.get(response_chart)
+
+                    if funcion_grafico:
+                        st.header(response_title)
+                        # Crear la figura y eje de Matplotlib
+                        fig, ax = plt.subplots()
+                        
+                        # Call the plotting function with the DataFrame and the axis
+                        funcion_grafico(df, ax)
+
+                        # Display the plot in Streamlit
+                        st.pyplot(fig)
+                    else:
+                        st.warning("Tipo de gráfico no reconocido.")
+                else:
+                    st.warning("No data returned.")
+
 
         except Exception as e:
             st.error(f"Exception: {e}")

@@ -195,7 +195,7 @@ def read_documents(prompt_usuario, client):
 
     #3. Crear Embedding
     # api_key = os.environ['AZURE_OPENAI_API_KEY'] #Pass your key here
-    api_key = os.environ['HTU46OYIIU4D4X2YSk6pT3BlbkFJLKnMQSRLNtIQgonttEAC']
+    api_key = os.environ['OPENAI_API_KEY']
 
     embeddings = OpenAIEmbeddings(openai_api_key = api_key)
 
@@ -210,5 +210,3 @@ def read_documents(prompt_usuario, client):
     response = chain.run(input_documents = match, question = prompt_usuario)
 
     return response
-
-

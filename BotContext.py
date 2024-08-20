@@ -181,7 +181,7 @@ def QueryMaker(prompt_usuario, client, dbschema):
                     ORDER BY 
                         TotalSales DESC;
         #Respuesta final:
-            Tu respuesta final debe ser un un script SQL limpio y sin caracteres no permitidos por SQL Server.                
+            Tu respuesta final debe ser un un script SQL limpio y sin caracteres no permitidos por SQL Server como los es ```.                
     """
     system_prompt = PromptTemplate(template=system_template,input_variables=["dbschema"])
     system_prompt = SystemMessagePromptTemplate(prompt=system_prompt)

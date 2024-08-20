@@ -157,7 +157,7 @@ def read_documents(prompt_usuario, client):
     load_dotenv()
 
     #Directorio
-    directory = os.environ['DIRECTORY']
+    directory = r"C:\Users\CarlosPepinPeralta\OneDrive - EvoPoint Solutions\Escritorio\Generative AI POC\DataDirectory"
 
     text = ""
     files = os.listdir(directory)

@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+from requests.exceptions import RequestException
 import json
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -20,7 +21,8 @@ if st.button('Send'):
             response = requests.post(
                 'http://127.0.0.1:5000/ask',
                 headers={'Content-Type': 'application/json'},
-                data=json.dumps({'query': query})
+                data=json.dumps({'query': query}),
+                timeout=(10, 30)  # (connection timeout, read timeout)
             )
             
             # Check if the request was successful
@@ -62,6 +64,9 @@ if st.button('Send'):
                     # Assuming response_data is in a format convertible to a dataframe
                     df = pd.DataFrame(response_data)
 
+                    # Convert columns to numeric if possible
+                    df = df.apply(pd.to_numeric, errors='coerce')
+
                     funciones_graficos = {
                         "barras": lambda df, ax: df.plot(kind='bar', ax=ax),
                         "lineas": lambda df, ax: df.plot(kind='line', ax=ax),
@@ -71,25 +76,29 @@ if st.button('Send'):
                         "area": lambda df, ax: df.plot(kind='area', ax=ax),
                         "radar": None  # Gráficos personalizados como radar podrían necesitar funciones adicionales
                     }
-                    
+
                     funcion_grafico = funciones_graficos.get(response_chart)
 
                     if funcion_grafico:
                         st.header(response_title)
                         # Crear la figura y eje de Matplotlib
                         fig, ax = plt.subplots()
-                        
-                        # Call the plotting function with the DataFrame and the axis
-                        funcion_grafico(df, ax)
 
-                        # Display the plot in Streamlit
-                        st.pyplot(fig)
+                        # Verifica que el DataFrame no esté vacío y tenga datos numéricos
+                        if not df.empty and not df.select_dtypes(include=['number']).empty:
+                            # Call the plotting function with the DataFrame and the axis
+                            funcion_grafico(df, ax)
+                            # Display the plot in Streamlit
+                            st.pyplot(fig)
+                        else:
+                            st.error("No hay datos numéricos para graficar.")
                     else:
                         st.warning("Tipo de gráfico no reconocido.")
                 else:
-                    st.warning("No data returned.")
+                    st.warning("No data returned.")               
 
-
+        except RequestException as e:
+            st.error(f"RequestException: {e}")
         except Exception as e:
             st.error(f"Exception: {e}")
 else:

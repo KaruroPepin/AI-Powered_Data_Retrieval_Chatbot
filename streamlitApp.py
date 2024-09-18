@@ -5,7 +5,7 @@ import json
 import pandas as pd
 import matplotlib.pyplot as plt
 
-
+from GraphicFunctions import *
 
 # Streamlit app title
 st.title('Test Flask API with Streamlit')
@@ -20,7 +20,11 @@ if st.button('Send'):
             # Send POST request to the Flask API
             response = requests.post(
                 'http://127.0.0.1:5000/ask',
-                headers={'Content-Type': 'application/json'},
+                headers={
+                    'Content-Type': 'application/json',
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:66.0) Gecko/20100101 Firefox/66.0",
+                    "Accept-Encoding": "*",
+                    "Connection": "keep-alive"},
                 data=json.dumps({'query': query}),
                 timeout=(10, 30)  # (connection timeout, read timeout)
             )
@@ -67,14 +71,15 @@ if st.button('Send'):
                     # Convert columns to numeric if possible
                     df = df.apply(pd.to_numeric, errors='coerce')
 
+                    # Dicionario de funciones lambda
                     funciones_graficos = {
-                        "barras": lambda df, ax: df.plot(kind='bar', ax=ax),
-                        "lineas": lambda df, ax: df.plot(kind='line', ax=ax),
-                        "circular": lambda df, ax: df.set_index(df.columns[0]).plot(kind='pie', y=df.columns[1], ax=ax),
-                        "dispersion": lambda df, ax: df.plot(kind='scatter', x=df.columns[0], y=df.columns[1], ax=ax),
-                        "histograma": lambda df, ax: df.plot(kind='hist', y=df.columns[1], ax=ax),
-                        "area": lambda df, ax: df.plot(kind='area', ax=ax),
-                        "radar": None  # Gráficos personalizados como radar podrían necesitar funciones adicionales
+                        "barras": plot_barras,
+                        "lineas": plot_lineas,
+                        "circular": plot_circular,
+                        "dispersion": plot_dispersión,
+                        "histograma": plot_histograma,
+                        "area": plot_area,
+                        "radar": None  
                     }
 
                     funcion_grafico = funciones_graficos.get(response_chart)
@@ -86,19 +91,22 @@ if st.button('Send'):
 
                         # Verifica que el DataFrame no esté vacío y tenga datos numéricos
                         if not df.empty and not df.select_dtypes(include=['number']).empty:
-                            # Call the plotting function with the DataFrame and the axis
+
+                            # Llamar a la función con el DataFrame y el eje
                             funcion_grafico(df, ax)
-                            # Display the plot in Streamlit
+                            
+                            # Display Streamlit
                             st.pyplot(fig)
                         else:
                             st.error("No hay datos numéricos para graficar.")
                     else:
                         st.warning("Tipo de gráfico no reconocido.")
                 else:
-                    st.warning("No data returned.")               
+                    st.error("No data returned.")               
 
         except RequestException as e:
             st.error(f"RequestException: {e}")
+
         except Exception as e:
             st.error(f"Exception: {e}")
 else:

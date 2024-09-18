@@ -12,7 +12,10 @@ import pyodbc
 from PyPDF2 import PdfReader
 import docx2txt
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings.openai import OpenAIEmbeddings
+
+# from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain_community.embeddings import OpenAIEmbeddings
+
 from langchain_community.vectorstores import FAISS
 from langchain.chains.question_answering import load_qa_chain
 
@@ -154,6 +157,67 @@ def local_schema():
 #-----------
 
 def read_documents(prompt_usuario, client):
+
+    load_dotenv()
+
+    #Directorio
+    directory = r"C:\Users\CarlosPepinPeralta\OneDrive - EvoPoint Solutions\Escritorio\Generative AI POC\DataDirectory"
+
+    text = ""
+    files = os.listdir(directory)
+    
+    for file in files:
+        file_path = os.path.join(directory, file)
+        extension = file.split('.')[-1].lower()
+
+        if extension == 'pdf':
+            # Read PDF file
+            pdf_reader = PdfReader(file_path)
+            for page in pdf_reader.pages:
+                text += page.extract_text()
+        
+        elif extension == 'docx':
+            # Read DOCX file
+            text += docx2txt.process(file_path)
+        
+        elif extension == 'txt':
+            # Read TXT file
+            with open(file_path, 'r', encoding='utf-8') as f:
+                text += f.read()
+        
+        else:
+            print(f"Unsupported file type: {extension}")
+    
+    #2. Crear los Chuncks
+    text_splitter = RecursiveCharacterTextSplitter(
+        separators="\n",
+        chunk_size=1000,
+        chunk_overlap=150,
+        length_function=len
+    )
+    chunks = text_splitter.split_text(text)
+
+    #3. Crear Embedding
+    # api_key = os.environ['AZURE_OPENAI_API_KEY'] #Pass your key here
+    api_key = os.environ['OPENAI_API_KEY']
+
+    embeddings = OpenAIEmbeddings(openai_api_key = api_key)
+
+    #4. Crear Vector Store
+    vector_store = FAISS.from_texts(chunks, embeddings)
+
+    #5. Obtener Similitudes
+    match = vector_store.similarity_search(prompt_usuario)
+
+    #Enviar Respuesta
+    chain = load_qa_chain(client, chain_type="stuff")
+    response = chain.run(input_documents = match, question = prompt_usuario)
+
+    return response
+
+
+def read_documents_YT(prompt_usuario, client):
+
     load_dotenv()
 
     #Directorio

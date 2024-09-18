@@ -48,7 +48,7 @@ def ask_bot():
 
             # Data
             dbschema = local_schema()
-            final_query = QueryMaker(prompt_usuario, client, dbschema)
+            final_query = GraphicQueryMaker(prompt_usuario, client, dbschema)
             chart_data = local_data(final_query)
 
              # Convert DataFrame to a list of dictionaries

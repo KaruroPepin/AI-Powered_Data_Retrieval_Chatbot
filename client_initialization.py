@@ -4,7 +4,6 @@ from langchain_openai import AzureChatOpenAI
 load_dotenv()
 
 
-
 client = AzureChatOpenAI(
     # azure_endpoint=os.environ['AZURE_OPENAI_ENDPOINT'],
     api_key = os.environ['AZURE_OPENAI_API_KEY'],

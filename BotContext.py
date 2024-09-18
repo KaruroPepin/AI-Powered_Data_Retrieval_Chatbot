@@ -42,7 +42,6 @@ def ContextClassifier(prompt_usuario, client):
         Enunciado: Que define el término 'transformación digital' en el informe?
         Etiqueta: Documento
 
-
         -Ejemplo 8:
         Enunciado: Que registros de ventas están disponibles para el mes de julio?
         Etiqueta: Base de Datos
@@ -180,6 +179,32 @@ def QueryMaker(prompt_usuario, client, dbschema):
                         DATEPART(QUARTER, soh.OrderDate) 
                     ORDER BY 
                         TotalSales DESC;
+
+            - Ejemplo 2: 
+                Pregunta: 
+                    Todos los paises disponibles.
+                Consulta:
+                    SELECT 
+                        id, 
+                        code, 
+                        name 
+                    FROM 
+                        aCountries;
+
+            - Ejemplo 3: 
+                Pregunta: 
+                    Todos los paises disponibles.
+                Consulta:
+                    SELECT 
+                        p.id AS province_id, 
+                        p.name AS province_name, 
+                        m.id AS municipy_id, 
+                        m.name AS municipy_name 
+                    FROM 
+                        aLocationProvinces p 
+                    JOIN 
+                        aLocationMunicipies m ON p.id = m.province_id;
+
         #Respuesta final:
             Tu respuesta final debe ser un un script SQL limpio y sin caracteres no permitidos por SQL Server como los es ```.                
     """
@@ -384,3 +409,88 @@ def chart_type(prompt_usuario, client):
     grhtype = chat_prompt | client | StrOutputParser()
     grhtype = grhtype.invoke({"prompt_usuario":prompt_usuario})
     return grhtype
+
+def GraphicQueryMaker(prompt_usuario, client, dbschema):
+
+    system_template = """
+        # Rol:
+            Eres un asistente de inteligencia artificial diseñado para ayudar al equipo de ingeniería de datos a realizar consultas en diversas fuentes de datos.
+            Estas consultas seran utulizadas para la creacion de graficos/visualizaciones utilizando la libreria de Python MatPlotLib.
+            Tu tarea principal es responder a las preguntas de los usuarios proporcionando un scripts SQL a partir del esquema de base de datos entregado a continuacion: 
+            
+        #Este es el esquema de base de datos: 
+            {dbschema}
+
+        #Contexto:
+            El equipo de ingeniería de datos necesita una herramienta de inteligencia artificial que genere consultas SQL optimizadas.
+
+        #Tarea:
+            a. Solo debes dar como resultado el query/consulta sin ningun otro character como las comillas (```) o palabra.
+            b. Es importante entregar la consulta en un formato ordenado y facil de entender.
+            c. En la elaboración de tus respuestas, siempre evalúas la coherencia y objetividad de las mismas.
+            d. Siempre respondes con una sentencia SQL donde simpre habra dos o tres ejex/axis necesarios para las visualizaciones.
+            e. Simpre evaluas si son necesarias incluir funciones agragadas para representar exactamente lo que indica el prompt del usuario.
+
+        #Ejemplos:
+            - Ejemplo 1: 
+                Pregunta: 
+                    Cuales son los cinco estatus con mayor frecuencia?
+                Consulta:
+                    SELECT TOP 5 
+                        estatus, 
+                        COUNT(*) AS frequency 
+                    FROM 
+                        aProperties 
+                    GROUP BY 
+                        estatus 
+                    ORDER BY 
+                        frequency DESC;
+
+            - Ejemplo 2: 
+                Pregunta: 
+                    Todos los paises disponibles.
+                Consulta:
+                    SELECT 
+                        id, 
+                        code, 
+                        name 
+                    FROM 
+                        aCountries;
+            
+            - Ejemplo 3: 
+                Pregunta: 
+                    Cuantifica en una grafica la cantidad de usos de las propiedades registradas en los ultimos tres años.
+                Consulta:
+                    SELECT TOP 3
+                        uso,
+                        YEAR(fecha_ocupado),
+                        COUNT(uso) AS Quantity
+                    FROM 
+                        aProperties
+                    GROUP BY    
+                        uso,
+                        YEAR(fecha_ocupado)
+                    ORDER BY 
+                        YEAR(fecha_ocupado) DESC
+
+
+        #Respuesta final:
+            Tu respuesta final debe ser un script SQL con tres campos maximo (incluyendo las funciones agregadas) limpio y sin caracteres no permitidos por SQL Server como los es ```.                
+    """
+    system_prompt = PromptTemplate(template=system_template,input_variables=["dbschema"])
+    system_prompt = SystemMessagePromptTemplate(prompt=system_prompt)
+
+	#2. Humano
+    human_template = """
+	Pregunta:{prompt_usuario}\n
+	Query:
+	"""
+    human_prompt = PromptTemplate(template=human_template,input_variables=["prompt_usuario"])
+    human_prompt = HumanMessagePromptTemplate(prompt=human_prompt)
+
+	#3. Chat
+    chat_prompt = ChatPromptTemplate.from_messages([system_prompt, human_prompt])
+
+    llm_chain = chat_prompt | client | StrOutputParser()
+    llm_chain = llm_chain.invoke({"prompt_usuario":prompt_usuario, "dbschema":dbschema})
+    return llm_chain

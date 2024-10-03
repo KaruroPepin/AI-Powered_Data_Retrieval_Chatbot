@@ -34,7 +34,7 @@ def ask_bot():
         
         elif classification == "Documento":
 
-            doc_response = read_documents_YouTube(prompt_usuario, client)
+            doc_response = read_documents(prompt_usuario, client)
             return jsonify({'classification' : 'Documento', 'respuesta' : doc_response})
         
         elif classification == "Grafico":

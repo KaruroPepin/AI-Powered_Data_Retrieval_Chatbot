@@ -123,13 +123,12 @@ def ContextClassifier(prompt_usuario, client):
     label = label.invoke({"prompt_usuario":prompt_usuario})
     return label   
 
-# Query Maker
 def QueryMaker(prompt_usuario, client, dbschema):
 
     system_template = """
         # Rol:
             Eres un asistente de inteligencia artificial diseñado para ayudar al equipo de ingeniería de datos a realizar consultas en diversas fuentes de datos. 
-            Tu tarea principal es responder a las preguntas de los usuarios proporcionando un scripts SQL a partir del esquema de base de datos entregado a continuacion: 
+            Tu tarea principal es responder a las preguntas de los usuarios proporcionando un scripts SQL a partir los esquemas de bases de datos entregado a continuacion: 
             
         #Este es el esquema de base de datos: 
             {dbschema}
@@ -169,14 +168,14 @@ def QueryMaker(prompt_usuario, client, dbschema):
                     Top 3 Quaters con mayor ventas en los ultimos 10 años.
                 Consulta:
                     SELECT TOP 3
-                        DATEPART(YEAR, soh.OrderDate) AS Year, 
-                        DATEPART(QUARTER, soh.OrderDate) AS Quarter, 
-                        SUM(soh.TotalDue) AS TotalSales 
+                        DATEPART(YEAR, pv.fecha_cierre) AS Year, 
+                        DATEPART(QUARTER, pv.fecha_cierre) AS Quarter, 
+                        SUM(pv.tvalor) AS TotalSales 
                     FROM 
-                        SalesLT.SalesOrderHeader AS soh 
+                        aProperties_Venta AS pv 
                     GROUP BY 
-                        DATEPART(YEAR, soh.OrderDate), 
-                        DATEPART(QUARTER, soh.OrderDate) 
+                        DATEPART(YEAR, pv.fecha_cierre), 
+                        DATEPART(QUARTER, pv.fecha_cierre) 
                     ORDER BY 
                         TotalSales DESC;
 
@@ -185,15 +184,15 @@ def QueryMaker(prompt_usuario, client, dbschema):
                     Todos los paises disponibles.
                 Consulta:
                     SELECT 
-                        id, 
-                        code, 
-                        name 
+                        id AS country_id, 
+                        code AS country_code, 
+                        name AS country_name
                     FROM 
                         aCountries;
 
             - Ejemplo 3: 
                 Pregunta: 
-                    Todos los paises disponibles.
+                    Todos los municipios disponibles.
                 Consulta:
                     SELECT 
                         p.id AS province_id, 
@@ -205,8 +204,49 @@ def QueryMaker(prompt_usuario, client, dbschema):
                     JOIN 
                         aLocationMunicipies m ON p.id = m.province_id;
 
+            - Ejemplo 4: 
+                Pregunta: 
+                    Todos los municipios disponibles.
+                Consulta:
+                    SELECT 
+                        p.id AS province_id, 
+                        p.name AS province_name, 
+                        m.id AS municipy_id, 
+                        m.name AS municipy_name 
+                    FROM 
+                        aLocationProvinces p 
+                    JOIN 
+                        aLocationMunicipies m ON p.id = m.province_id;
+
+            - Ejemplo 5: 
+                Pregunta: 
+                    Top 3 abogados con mas adjudicaciones realizadas por cada firma de abogados.
+                Consulta:
+                    WITH RankedAttorneys AS (
+                        SELECT 
+                            lf.name AS lawfirm_name,
+                            la.name AS attorneys_name,
+                            COUNT(pa.id) AS TotalSales,
+                            ROW_NUMBER() OVER (PARTITION BY lf.name ORDER BY COUNT(pa.id) DESC) AS rn
+                        FROM 
+                            aLawFirms_Attorneys AS la
+                            JOIN aLawFirms AS lf ON la.lawfirm = lf.id
+                            JOIN aProperties_Adjudicacion AS pa ON la.id = pa.abogado
+                        GROUP BY 
+                            lf.name, la.name
+                    )
+                    SELECT 
+                        lawfirm_name,
+                        attorneys_name,
+                        TotalSales
+                    FROM 
+                        RankedAttorneys
+                    WHERE 
+                        rn <= 3
+
         #Respuesta final:
-            Tu respuesta final debe ser un un script SQL limpio y sin caracteres no permitidos por SQL Server como los es ```.                
+            Tu respuesta final debe ser un script SQL limpio y sin caracteres no permitidos por SQL Server o Azure SQL Database como los es ```. 
+            Siempre especificas cual es la base de datos que se esta consultando: "Azure" o "Local".               
     """
     system_prompt = PromptTemplate(template=system_template,input_variables=["dbschema"])
     system_prompt = SystemMessagePromptTemplate(prompt=system_prompt)

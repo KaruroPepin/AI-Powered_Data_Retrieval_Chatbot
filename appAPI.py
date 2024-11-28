@@ -4,7 +4,7 @@ import traceback
 
 from client_initialization import client
 from BotContext import *
-from data import *
+from data_sources import *
 
 app = Flask(__name__)
 
@@ -31,6 +31,20 @@ def ask_bot():
                 data = data.to_dict(orient='records')
 
             return jsonify({'classification' : 'Base de Datos', 'final_query' : final_query, 'data' : data})
+        
+        # if classification == "Base de Datos":
+        
+        #     dbschema = combined_schema()
+        #     final_query = QueryMaker(prompt_usuario, client, dbschema)
+
+        #     #Condicional IF
+        #     data = local_data(final_query)
+
+        #     # Convert DataFrame to a list of dictionaries
+        #     if isinstance(data, pd.DataFrame):
+        #         data = data.to_dict(orient='records')
+
+        #     return jsonify({'classification' : 'Base de Datos', 'final_query' : final_query, 'data' : data})
         
         elif classification == "Documento":
 

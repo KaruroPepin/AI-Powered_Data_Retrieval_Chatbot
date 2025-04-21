@@ -1,5 +1,5 @@
 from langchain.prompts.prompt import PromptTemplate
-from langchain.prompts import HumanMessagePromptTemplate,SystemMessagePromptTemplate,ChatPromptTemplate
+from langchain.prompts import HumanMessagePromptTemplate, SystemMessagePromptTemplate, ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
 
@@ -105,7 +105,7 @@ def ContextClassifier(prompt_usuario, client):
     #Resultado final: Como resultado final a tu respuesta esta siempre sera la Etiqueta. No debes responder con algo distinto a las etiquetas indicadas.
 
     """
-    system_prompt = PromptTemplate(template=system_template,input_variables=["dbschema"])
+    system_prompt = PromptTemplate(template=system_template,input_variables=["prompt_usuario"])
     system_prompt = SystemMessagePromptTemplate(prompt=system_prompt)
 
 	#2. Humano
@@ -248,8 +248,8 @@ def QueryMaker(prompt_usuario, client, dbschema):
             Tu respuesta final debe ser un script SQL limpio y sin caracteres no permitidos por SQL Server o Azure SQL Database como los es ```. 
             Siempre especificas cual es la base de datos que se esta consultando: "Azure" o "Local".               
     """
-    system_prompt = PromptTemplate(template=system_template,input_variables=["dbschema"])
-    system_prompt = SystemMessagePromptTemplate(prompt=system_prompt)
+    system_prompt = PromptTemplate(template = system_template, input_variables=["dbschema"])
+    system_prompt = SystemMessagePromptTemplate(prompt = system_prompt)
 
 	#2. Humano
     human_template = """
@@ -262,6 +262,7 @@ def QueryMaker(prompt_usuario, client, dbschema):
 	#3. Chat
     chat_prompt = ChatPromptTemplate.from_messages([system_prompt, human_prompt])
 
+    #4. LLMChain
     llm_chain = chat_prompt | client | StrOutputParser()
     llm_chain = llm_chain.invoke({"prompt_usuario":prompt_usuario, "dbschema":dbschema})
     return llm_chain
@@ -316,7 +317,6 @@ def chart_type(prompt_usuario, client):
         Etiqueta: barras
         Titulo: Comparación de Ingresos por Tienda en Diferentes Ciudades
 
-        
         -Ejemplo 9:
         Enunciado: ¿Cuál es el número de empleados por departamento?
         Etiqueta: barras

@@ -1,11 +1,13 @@
+import inspect
 from typing import TYPE_CHECKING, Optional, Union
-import numpy as np
 
 from chromadb.api.models.CollectionCommon import CollectionCommon
 from chromadb.api.types import (
     URI,
     CollectionMetadata,
     Embedding,
+    IncludeEnum,
+    PyEmbedding,
     Include,
     Metadata,
     Document,
@@ -17,6 +19,7 @@ from chromadb.api.types import (
     ID,
     OneOrMany,
     WhereDocument,
+    IncludeEnum,
 )
 
 import logging
@@ -35,7 +38,11 @@ class Collection(CollectionCommon["ServerAPI"]):
             int: The total number of embeddings added to the database
 
         """
-        return self._client._count(collection_id=self.id)
+        return self._client._count(
+            collection_id=self.id,
+            tenant=self.tenant,
+            database=self.database,
+        )
 
     def add(
         self,
@@ -43,7 +50,7 @@ class Collection(CollectionCommon["ServerAPI"]):
         embeddings: Optional[
             Union[
                 OneOrMany[Embedding],
-                OneOrMany[np.ndarray],
+                OneOrMany[PyEmbedding],
             ]
         ] = None,
         metadatas: Optional[OneOrMany[Metadata]] = None,
@@ -71,17 +78,26 @@ class Collection(CollectionCommon["ServerAPI"]):
             ValueError: If you provide an id that already exists
 
         """
-        (
-            ids,
-            embeddings,
-            metadatas,
-            documents,
-            uris,
-        ) = self._validate_and_prepare_embedding_set(
-            ids, embeddings, metadatas, documents, images, uris
+
+        add_request = self._validate_and_prepare_add_request(
+            ids=ids,
+            embeddings=embeddings,
+            metadatas=metadatas,
+            documents=documents,
+            images=images,
+            uris=uris,
         )
 
-        self._client._add(ids, self.id, embeddings, metadatas, documents, uris)
+        self._client._add(
+            collection_id=self.id,
+            ids=add_request["ids"],
+            embeddings=add_request["embeddings"],
+            metadatas=add_request["metadatas"],
+            documents=add_request["documents"],
+            uris=add_request["uris"],
+            tenant=self.tenant,
+            database=self.database,
+        )
 
     def get(
         self,
@@ -90,7 +106,7 @@ class Collection(CollectionCommon["ServerAPI"]):
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         where_document: Optional[WhereDocument] = None,
-        include: Include = ["metadatas", "documents"],
+        include: Include = [IncludeEnum.metadatas, IncludeEnum.documents],
     ) -> GetResult:
         """Get embeddings and their associate data from the data store. If no ids or where filter is provided returns
         all embeddings up to limit starting at offset.
@@ -107,25 +123,29 @@ class Collection(CollectionCommon["ServerAPI"]):
             GetResult: A GetResult object containing the results.
 
         """
-        (
-            valid_ids,
-            valid_where,
-            valid_where_document,
-            valid_include,
-        ) = self._validate_and_prepare_get_request(ids, where, where_document, include)
-
-        get_results = self._client._get(
-            self.id,
-            valid_ids,
-            valid_where,
-            None,
-            limit,
-            offset,
-            where_document=valid_where_document,
-            include=valid_include,
+        get_request = self._validate_and_prepare_get_request(
+            ids=ids,
+            where=where,
+            where_document=where_document,
+            include=include,
         )
 
-        return self._transform_get_response(get_results, include)
+        get_results = self._client._get(
+            collection_id=self.id,
+            ids=get_request["ids"],
+            where=get_request["where"],
+            where_document=get_request["where_document"],
+            include=get_request["include"],
+            sort=None,
+            limit=limit,
+            offset=offset,
+            tenant=self.tenant,
+            database=self.database,
+        )
+
+        return self._transform_get_response(
+            response=get_results, include=get_request["include"]
+        )
 
     def peek(self, limit: int = 10) -> GetResult:
         """Get the first few results in the database up to limit
@@ -136,14 +156,21 @@ class Collection(CollectionCommon["ServerAPI"]):
         Returns:
             GetResult: A GetResult object containing the results.
         """
-        return self._client._peek(self.id, limit)
+        return self._transform_peek_response(
+            self._client._peek(
+                collection_id=self.id,
+                n=limit,
+                tenant=self.tenant,
+                database=self.database,
+            )
+        )
 
     def query(
         self,
         query_embeddings: Optional[
             Union[
                 OneOrMany[Embedding],
-                OneOrMany[np.ndarray],
+                OneOrMany[PyEmbedding],
             ]
         ] = None,
         query_texts: Optional[OneOrMany[Document]] = None,
@@ -152,7 +179,11 @@ class Collection(CollectionCommon["ServerAPI"]):
         n_results: int = 10,
         where: Optional[Where] = None,
         where_document: Optional[WhereDocument] = None,
-        include: Include = ["metadatas", "documents", "distances"],
+        include: Include = [
+            IncludeEnum.metadatas,
+            IncludeEnum.documents,
+            IncludeEnum.distances,
+        ],
     ) -> QueryResult:
         """Get the n_results nearest neighbor embeddings for provided query_embeddings or query_texts.
 
@@ -160,6 +191,7 @@ class Collection(CollectionCommon["ServerAPI"]):
             query_embeddings: The embeddings to get the closes neighbors of. Optional.
             query_texts: The document texts to get the closes neighbors of. Optional.
             query_images: The images to get the closes neighbors of. Optional.
+            query_uris: The URIs to be used with data loader. Optional.
             n_results: The number of neighbors to return for each query_embedding or query_texts. Optional.
             where: A Where type dict used to filter results by. E.g. `{"$and": [{"color" : "red"}, {"price": {"$gte": 4.20}}]}`. Optional.
             where_document: A WhereDocument type dict used to filter by the documents. E.g. `{$contains: {"text": "hello"}}`. Optional.
@@ -176,32 +208,31 @@ class Collection(CollectionCommon["ServerAPI"]):
 
         """
 
-        (
-            valid_query_embeddings,
-            valid_n_results,
-            valid_where,
-            valid_where_document,
-        ) = self._validate_and_prepare_query_request(
-            query_embeddings,
-            query_texts,
-            query_images,
-            query_uris,
-            n_results,
-            where,
-            where_document,
-            include,
+        query_request = self._validate_and_prepare_query_request(
+            query_embeddings=query_embeddings,
+            query_texts=query_texts,
+            query_images=query_images,
+            query_uris=query_uris,
+            n_results=n_results,
+            where=where,
+            where_document=where_document,
+            include=include,
         )
 
         query_results = self._client._query(
             collection_id=self.id,
-            query_embeddings=valid_query_embeddings,
-            n_results=valid_n_results,
-            where=valid_where,
-            where_document=valid_where_document,
-            include=include,
+            query_embeddings=query_request["embeddings"],
+            n_results=query_request["n_results"],
+            where=query_request["where"],
+            where_document=query_request["where_document"],
+            include=query_request["include"],
+            tenant=self.tenant,
+            database=self.database,
         )
 
-        return self._transform_query_response(query_results, include)
+        return self._transform_query_response(
+            response=query_results, include=query_request["include"]
+        )
 
     def modify(
         self, name: Optional[str] = None, metadata: Optional[CollectionMetadata] = None
@@ -221,7 +252,13 @@ class Collection(CollectionCommon["ServerAPI"]):
         # Note there is a race condition here where the metadata can be updated
         # but another thread sees the cached local metadata.
         # TODO: fixme
-        self._client._modify(id=self.id, new_name=name, new_metadata=metadata)
+        self._client._modify(
+            id=self.id,
+            new_name=name,
+            new_metadata=metadata,
+            tenant=self.tenant,
+            database=self.database,
+        )
 
         self._update_model_after_modify_success(name, metadata)
 
@@ -231,7 +268,7 @@ class Collection(CollectionCommon["ServerAPI"]):
         embeddings: Optional[
             Union[
                 OneOrMany[Embedding],
-                OneOrMany[np.ndarray],
+                OneOrMany[PyEmbedding],
             ]
         ] = None,
         metadatas: Optional[OneOrMany[Metadata]] = None,
@@ -250,17 +287,25 @@ class Collection(CollectionCommon["ServerAPI"]):
         Returns:
             None
         """
-        (
-            ids,
-            embeddings,
-            metadatas,
-            documents,
-            uris,
-        ) = self._validate_and_prepare_update_request(
-            ids, embeddings, metadatas, documents, images, uris
+        update_request = self._validate_and_prepare_update_request(
+            ids=ids,
+            embeddings=embeddings,
+            metadatas=metadatas,
+            documents=documents,
+            images=images,
+            uris=uris,
         )
 
-        self._client._update(self.id, ids, embeddings, metadatas, documents, uris)
+        self._client._update(
+            collection_id=self.id,
+            ids=update_request["ids"],
+            embeddings=update_request["embeddings"],
+            metadatas=update_request["metadatas"],
+            documents=update_request["documents"],
+            uris=update_request["uris"],
+            tenant=self.tenant,
+            database=self.database,
+        )
 
     def upsert(
         self,
@@ -268,7 +313,7 @@ class Collection(CollectionCommon["ServerAPI"]):
         embeddings: Optional[
             Union[
                 OneOrMany[Embedding],
-                OneOrMany[np.ndarray],
+                OneOrMany[PyEmbedding],
             ]
         ] = None,
         metadatas: Optional[OneOrMany[Metadata]] = None,
@@ -287,23 +332,24 @@ class Collection(CollectionCommon["ServerAPI"]):
         Returns:
             None
         """
-        (
-            ids,
-            embeddings,
-            metadatas,
-            documents,
-            uris,
-        ) = self._validate_and_prepare_upsert_request(
-            ids, embeddings, metadatas, documents, images, uris
-        )
-
-        self._client._upsert(
-            collection_id=self.id,
+        upsert_request = self._validate_and_prepare_upsert_request(
             ids=ids,
             embeddings=embeddings,
             metadatas=metadatas,
             documents=documents,
+            images=images,
             uris=uris,
+        )
+
+        self._client._upsert(
+            collection_id=self.id,
+            ids=upsert_request["ids"],
+            embeddings=upsert_request["embeddings"],
+            metadatas=upsert_request["metadatas"],
+            documents=upsert_request["documents"],
+            uris=upsert_request["uris"],
+            tenant=self.tenant,
+            database=self.database,
         )
 
     def delete(
@@ -325,8 +371,54 @@ class Collection(CollectionCommon["ServerAPI"]):
         Raises:
             ValueError: If you don't provide either ids, where, or where_document
         """
-        (ids, where, where_document) = self._validate_and_prepare_delete_request(
+        delete_request = self._validate_and_prepare_delete_request(
             ids, where, where_document
         )
 
-        self._client._delete(self.id, ids, where, where_document)
+        self._client._delete(
+            collection_id=self.id,
+            ids=delete_request["ids"],
+            where=delete_request["where"],
+            where_document=delete_request["where_document"],
+            tenant=self.tenant,
+            database=self.database,
+        )
+
+
+class CollectionName(str):
+    """
+    A string wrapper to supply users with indicative message about list_collections only
+    returning collection names, in lieu of Collection object.
+
+    When a user will try to access an attribute on a CollectionName string, the __getattribute__ method
+    of str is invoked first. If a valid str method or property is found, it will be used. Otherwise, the fallback
+    __getattr__ defined here is invoked next. It will error if the requested attribute is a Collection
+    method or property.
+
+    For example:
+    collection_name = client.list_collections()[0] # collection_name = "test"
+
+    collection_name.startsWith("t") # Evaluates to True.
+    # __getattribute__ is invoked first, selecting startsWith from str.
+
+    collection_name.add(ids=[...], documents=[...]) # Raises the error defined below
+    # __getattribute__ is invoked first, not finding a match in str.
+    # __getattr__ from this class is invoked and raises an error
+
+    """
+
+    def __getattr__(self, item):
+        collection_attributes_and_methods = [
+            member
+            for member, _ in inspect.getmembers(Collection)
+            if not member.startswith("_")
+        ]
+
+        if item in collection_attributes_and_methods:
+            raise NotImplementedError(
+                f"In Chroma v0.6.0, list_collections only returns collection names. "
+                f"Use Client.get_collection({str(self)}) to access {item}. "
+                f"See https://docs.trychroma.com/deployment/migration for more information."
+            )
+
+        raise AttributeError(f"'CollectionName' object has no attribute '{item}'")

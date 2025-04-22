@@ -8,6 +8,11 @@ __pycache__/
 venv/
 env/
 project-ai-venv/
+.venv/
+.env/
+.project-ai-venv/
+
+
 
 # Archivos de configuración de IDEs
 .vscode/

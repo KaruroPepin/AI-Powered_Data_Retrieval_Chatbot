@@ -1,0 +1,26 @@
+# Archivos de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Entornos virtuales
+venv/
+env/
+project-ai-venv/
+
+# Archivos de configuración de IDEs
+.vscode/
+.idea/
+
+# Archivos de compilación
+build/
+dist/
+*.egg-info/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
